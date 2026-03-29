@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0c10">
+<title>Wheel Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--bg:#0a0c10;--surf:#111318;--surf2:#181c24;--brd:#252a35;--acc:#00e5a0;--red:#ef4444;--grn:#10b981;--ylw:#f59e0b;--blu:#3b82f6;--pur:#8b5cf6;--txt:#e8eaf0;--dim:#6b7280;--bot:env(safe-area-inset-bottom,0px);--top:env(safe-area-inset-top,0px);--navh:64px;--hdrh:56px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;font-family:'Syne',sans-serif;background:var(--bg);color:var(--txt)}
+#app{display:flex;flex-direction:column;height:100%;padding-top:var(--top)}
+.hdr{height:var(--hdrh);flex-shrink:0;background:rgba(10,12,16,.96);backdrop-filter:blur(20px);border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;padding:0 1rem;z-index:50}
+.logo{font-family:'Space Mono',monospace;font-size:.9rem;font-weight:700;color:var(--acc)}
+.logo span{color:var(--dim)}
+.sbtn{display:flex;align-items:center;gap:.35rem;background:none;border:1px solid var(--brd);color:var(--dim);font-family:'Syne',sans-serif;font-size:.7rem;font-weight:700;padding:.4rem .7rem;border-radius:8px;cursor:pointer;transition:all .2s;text-transform:uppercase}
+.sbtn.ok{border-color:var(--grn);color:var(--grn)}.sbtn.busy{border-color:var(--ylw);color:var(--ylw);animation:pulse 1s infinite}.sbtn.err{border-color:var(--red);color:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.sdot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-bottom:calc(var(--navh) + var(--bot) + 1rem)}
+.bnav{position:fixed;bottom:0;left:0;right:0;height:calc(var(--navh) + var(--bot));padding-bottom:var(--bot);background:rgba(10,12,16,.97);backdrop-filter:blur(20px);border-top:1px solid var(--brd);display:flex;align-items:flex-start;justify-content:space-around;padding-top:.5rem;z-index:100}
+.ni{display:flex;flex-direction:column;align-items:center;gap:.15rem;background:none;border:none;color:var(--dim);font-family:'Syne',sans-serif;font-size:.58rem;font-weight:700;text-transform:uppercase;cursor:pointer;padding:.3rem .5rem;min-width:52px;transition:color .15s}
+.ni .ic{font-size:1.25rem;line-height:1}.ni.on{color:var(--acc)}
+.pip{width:4px;height:4px;border-radius:50%;background:transparent;margin-top:1px}.ni.on .pip{background:var(--acc)}
+.fab{position:fixed;bottom:calc(var(--navh) + var(--bot) + .85rem);right:1rem;z-index:200;width:54px;height:54px;border-radius:50%;background:var(--acc);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#000;font-weight:900;box-shadow:0 4px 24px rgba(0,229,160,.45);transition:all .2s}
+.fab:active{transform:scale(.9)}
+.page{display:none;padding:1rem}.page.on{display:block}
+.kscroll{display:flex;gap:.6rem;overflow-x:auto;scrollbar-width:none;margin:0 -1rem;padding:.25rem 1rem .75rem}
+.kscroll::-webkit-scrollbar{display:none}
+.kcard{flex-shrink:0;min-width:148px;background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:.9rem 1rem;position:relative;overflow:hidden;cursor:pointer;transition:border-color .15s}
+.kcard:active{border-color:var(--acc)}.kcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--ac,var(--acc))}
+.klbl{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:.35rem}
+.kval{font-family:'Space Mono',monospace;font-size:1.2rem;font-weight:700;line-height:1}
+.ksub{font-size:.62rem;color:var(--dim);margin-top:.25rem}
+.pos{color:var(--grn)}.neg{color:var(--red)}.neutral{color:var(--dim)}
+.stit{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin:1.1rem 0 .55rem}
+.tcard{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:.9rem;margin-bottom:.55rem;cursor:pointer;transition:border-color .15s;position:relative;overflow:hidden}
+.tcard:active{border-color:rgba(0,229,160,.4)}
+.tacc{position:absolute;left:0;top:0;bottom:0;width:3px}
+.ttop{display:flex;align-items:center;justify-content:space-between;margin-bottom:.55rem;padding-left:.5rem}
+.ttick{font-family:'Space Mono',monospace;font-weight:700;font-size:.95rem;color:var(--acc)}
+.tnet{font-family:'Space Mono',monospace;font-weight:700;font-size:.95rem}
+.tmid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;margin-bottom:.55rem;padding-left:.5rem}
+.tsl{font-size:.58rem;color:var(--dim);text-transform:uppercase;margin-bottom:.1rem}
+.tsv{font-family:'Space Mono',monospace;font-size:.75rem;font-weight:700}
+.tbot{display:flex;align-items:center;justify-content:space-between;padding-left:.5rem}
+.tmeta{font-size:.65rem;color:var(--dim)}.tacts{display:flex;gap:.35rem}
+.ibtn{background:var(--surf2);border:1px solid var(--brd);color:var(--dim);font-size:.78rem;padding:.3rem .55rem;border-radius:8px;cursor:pointer;transition:all .15s}
+.ibtn:active{border-color:var(--acc);color:var(--acc)}.ibtn.del:active{border-color:var(--red);color:var(--red)}
+.bdg{display:inline-flex;align-items:center;padding:.18rem .5rem;border-radius:5px;font-size:.62rem;font-weight:700;font-family:'Space Mono',monospace}
+.bcsp{background:rgba(0,229,160,.12);color:#00e5a0}.bcc{background:rgba(255,209,102,.15);color:#ffd166}
+.bopen{background:rgba(59,130,246,.15);color:#3b82f6}.bclosed{background:rgba(107,114,128,.12);color:#6b7280}
+.bassigned{background:rgba(245,158,11,.15);color:#f59e0b}.bexpired{background:rgba(107,114,128,.1);color:#6b7280}
+.bcalled{background:rgba(139,92,246,.15);color:#8b5cf6}
+.dte{font-family:'Space Mono',monospace;font-size:.68rem;font-weight:700;padding:.12rem .35rem;border-radius:4px}
+.dok{background:rgba(16,185,129,.15);color:var(--grn)}.dsoon{background:rgba(245,158,11,.15);color:var(--ylw)}.durg{background:rgba(239,68,68,.2);color:var(--red)}
+.chips{display:flex;gap:.35rem;overflow-x:auto;scrollbar-width:none;margin:0 -1rem;padding:0 1rem .65rem}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex-shrink:0;padding:.32rem .85rem;border-radius:20px;font-size:.7rem;font-weight:700;border:1px solid var(--brd);cursor:pointer;transition:all .15s;background:none;color:var(--dim);font-family:'Syne',sans-serif}
+.chip.on{border-color:var(--acc);color:var(--acc);background:rgba(0,229,160,.08)}
+.barchart{display:flex;flex-direction:column;gap:.45rem}
+.brow{display:flex;align-items:center;gap:.45rem}
+.blbl{font-size:.65rem;color:var(--dim);width:44px;text-align:right;font-family:'Space Mono',monospace;flex-shrink:0}
+.btrk{flex:1;height:17px;background:var(--surf2);border-radius:4px;overflow:hidden}
+.bfill{height:100%;border-radius:4px;transition:width .6s ease}
+.bpos{background:linear-gradient(90deg,#10b981,#00e5a0)}.bneg2{background:linear-gradient(90deg,#ef4444,#ff6b6b)}
+.bval{font-size:.65rem;font-family:'Space Mono',monospace;width:70px;flex-shrink:0}
+.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}
+.tkcrd{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:.85rem;position:relative;overflow:hidden;cursor:pointer;transition:border-color .15s}
+.tkcrd:active{border-color:rgba(0,229,160,.4)}.tkcrd::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px}
+.tkpos::after{background:var(--grn)}.tkneg::after{background:var(--red)}.tkneu::after{background:var(--brd)}
+.tknm{font-family:'Space Mono',monospace;font-size:.95rem;font-weight:700;color:var(--acc);margin-bottom:.45rem}
+.tkop{position:absolute;top:.55rem;right:.55rem;font-size:.56rem;font-weight:700;padding:.1rem .35rem;border-radius:4px;font-family:'Space Mono',monospace;background:rgba(59,130,246,.15);color:#3b82f6}
+.tkst{margin-bottom:.28rem}.tksl{font-size:.56rem;color:var(--dim);text-transform:uppercase}.tksv{font-family:'Space Mono',monospace;font-size:.78rem;font-weight:700}
+.prow{display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid rgba(37,42,53,.5)}
+.prow:last-child{border-bottom:none}.pmonth{font-size:.8rem;font-weight:700}
+.pvals{display:flex;gap:.5rem;align-items:center}.pval{font-family:'Space Mono',monospace;font-size:.72rem}
+.warn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:.6rem .85rem;margin-bottom:.7rem;font-size:.73rem;color:var(--ylw);display:flex;gap:.4rem;align-items:flex-start;line-height:1.4}
+.scrd{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:.85rem .95rem;margin-bottom:.55rem}
+.stop{display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem}
+.stick{font-family:'Space Mono',monospace;font-size:.92rem;font-weight:700;color:var(--acc)}.sfit{font-size:.66rem;font-weight:700}
+.sstats{display:flex;gap:1rem;margin-bottom:.3rem}.sstat{font-size:.7rem;color:var(--dim)}.sstat strong{color:var(--txt)}.snote{font-size:.7rem;color:var(--dim)}
+.dbxbanner{background:rgba(0,97,255,.1);border:1px solid rgba(0,97,255,.3);border-radius:14px;padding:1rem;margin-bottom:1rem}
+.dbxtop{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}.dbxdesc{font-size:.78rem;color:var(--dim);line-height:1.5}
+.spill{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem .85rem;border-radius:10px;font-size:.78rem;font-weight:700;margin-bottom:1rem;width:100%}
+.spok{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);color:var(--grn)}
+.spwarn{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:var(--ylw)}
+.steps{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:.9rem;margin-bottom:1rem}
+.step{display:flex;gap:.65rem;padding:.5rem 0;border-bottom:1px solid rgba(37,42,53,.4);align-items:flex-start}.step:last-child{border-bottom:none}
+.stepn{width:22px;height:22px;border-radius:50%;background:rgba(0,97,255,.2);color:#60a5fa;font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.stept{font-size:.78rem;color:var(--dim);line-height:1.55}.stept strong{color:var(--txt)}.stept a{color:#60a5fa;text-decoration:none}.stept code{background:var(--surf2);padding:.1rem .35rem;border-radius:4px;font-family:'Space Mono',monospace;font-size:.72rem;color:var(--acc)}
+.fgrp{margin-bottom:.85rem}.flbl{font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);display:block;margin-bottom:.32rem}
+.finp,.fsel{width:100%;background:var(--surf2);border:1px solid var(--brd);color:var(--txt);font-family:'Syne',sans-serif;font-size:1rem;padding:.75rem .9rem;border-radius:10px;outline:none;-webkit-appearance:none;transition:border-color .15s}
+.finp:focus,.fsel:focus{border-color:var(--acc)}.frow{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}
+.instcard{background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:.9rem;font-size:.78rem;color:var(--dim);line-height:1.7}
+.yrsel{display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem}
+.yrbtn{background:var(--surf);border:1px solid var(--brd);color:var(--txt);width:36px;height:36px;border-radius:8px;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.yrlbl{flex:1;text-align:center;font-family:'Space Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--acc)}
+.cprev{background:var(--surf2);border:1px solid var(--brd);border-radius:10px;padding:.85rem;display:grid;grid-template-columns:1fr 1fr 1fr;gap:.45rem;margin-bottom:.9rem}
+.citem{text-align:center}.clbl{font-size:.56rem;color:var(--dim);text-transform:uppercase;margin-bottom:.18rem}.cval{font-family:'Space Mono',monospace;font-size:.82rem;font-weight:700}
+.mover{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:500;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
+.mover.on{opacity:1;pointer-events:all}
+.msheet{width:100%;max-height:93vh;overflow-y:auto;background:var(--surf);border-radius:20px 20px 0 0;padding:0 1.2rem 1.2rem;padding-bottom:calc(1.2rem + var(--bot));transform:translateY(100%);transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.mover.on .msheet{transform:translateY(0)}.mhandle{width:36px;height:4px;background:var(--brd);border-radius:2px;margin:.7rem auto 1.1rem}.mtit{font-size:1.05rem;font-weight:800;margin-bottom:1.1rem}
+.btnrow{display:flex;gap:.65rem;margin-bottom:.75rem}
+.btn{width:100%;padding:.85rem;border-radius:12px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-size:.88rem;font-weight:700;text-transform:uppercase;transition:all .15s}
+.btn:active{transform:scale(.97)}.bprim{background:var(--acc);color:#000}.bout{background:none;border:1px solid var(--brd);color:var(--dim)}
+.empty{text-align:center;padding:2.5rem 1rem;color:var(--dim)}.empty .ei{font-size:1.8rem;margin-bottom:.4rem}.empty p{font-size:.82rem}
+.toast{position:fixed;top:calc(var(--hdrh) + var(--top) + .5rem);left:50%;transform:translateX(-50%) translateY(-130%);background:var(--surf2);border:1px solid var(--brd);border-radius:12px;padding:.6rem 1.1rem;font-size:.78rem;font-weight:600;z-index:9999;transition:transform .25s ease,opacity .25s ease;opacity:0;box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:80vw;text-align:center;pointer-events:none}
+.toast.on{transform:translateX(-50%) translateY(0);opacity:1}
+.tok{border-color:var(--grn);color:var(--grn)}.terr{border-color:var(--red);color:var(--red)}.tinfo{border-color:var(--blu);color:var(--blu)}.twarn{border-color:var(--ylw);color:var(--ylw)}
+::-webkit-scrollbar{width:0;height:0}
+</style>
+</head>
+<body>
+<div id="app">
+<header class="hdr">
+  <div class="logo">WHEEL<span>/</span>PRO</div>
+  <button class="sbtn" id="sbtn" onclick="handleSync()"><div class="sdot"></div><span id="slbl">Connect</span></button>
+</header>
+<div class="scroll" id="scroll">
+
+<!-- DASHBOARD -->
+<div class="page on" id="page-dash">
+  <div class="kscroll" id="kscroll"></div>
+  <div id="dwarn"></div>
+  <div class="stit">📊 P&L per Ticker</div>
+  <div class="barchart" id="dticker" style="margin-bottom:1.1rem"></div>
+  <div class="stit">📈 Maandelijkse P&L</div>
+  <div class="barchart" id="dmonth" style="margin-bottom:1.1rem"></div>
+  <div class="stit">🟢 Open Posities</div>
+  <div id="dopens"></div>
+</div>
+
+<!-- TRADES -->
+<div class="page" id="page-trades">
+  <div class="chips">
+    <button class="chip on" onclick="setChip('',this)">Alle</button>
+    <button class="chip" onclick="setChip('Open',this)">Open</button>
+    <button class="chip" onclick="setChip('Closed',this)">Closed</button>
+    <button class="chip" onclick="setChip('Assigned',this)">Assigned</button>
+    <button class="chip" onclick="setChip('CSP',this)">CSP</button>
+    <button class="chip" onclick="setChip('CC',this)">CC</button>
+  </div>
+  <div id="tcards"></div>
+</div>
+
+<!-- TICKERS -->
+<div class="page" id="page-tickers"><div class="tgrid" id="tgrid"></div></div>
+
+<!-- PERFORMANCE -->
+<div class="page" id="page-perf">
+  <div class="yrsel">
+    <button class="yrbtn" onclick="chgYr(-1)">&#8249;</button>
+    <div class="yrlbl" id="yrlbl">2026</div>
+    <button class="yrbtn" onclick="chgYr(1)">&#8250;</button>
+  </div>
+  <div class="kscroll" id="pkpis"></div>
+  <div class="stit" id="pmonthtit">Maand per Maand 2026</div>
+  <div id="prows"></div>
+</div>
+
+<!-- SCREENER -->
+<div class="page" id="page-screen">
+  <div class="stit">Wheel Regels</div>
+  <div style="background:var(--surf);border:1px solid var(--brd);border-radius:14px;padding:.9rem;margin-bottom:1rem">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.55rem;font-size:.75rem">
+      <div><span style="color:var(--dim)">DTE</span><br><strong>30-45 dagen</strong></div>
+      <div><span style="color:var(--dim)">Put Delta</span><br><strong>0.20-0.30</strong></div>
+      <div><span style="color:var(--dim)">Min IV</span><br><strong>&gt;30%</strong></div>
+      <div><span style="color:var(--dim)">Liquiditeit</span><br><strong>&gt;25K vol/dag</strong></div>
+      <div><span style="color:var(--dim)">Min Premium</span><br><strong>&gt;1% van strike</strong></div>
+      <div><span style="color:var(--dim)">Exit bij</span><br><strong>50-60% premie</strong></div>
+    </div>
+  </div>
+  <div class="stit">Top Kandidaten 2026</div>
+  <div id="scards"></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="page" id="page-settings">
+  <div class="dbxbanner">
+    <div class="dbxtop"><span style="font-size:1.4rem">📦</span><span style="font-size:.9rem;font-weight:800;color:#60a5fa">Dropbox Koppeling</span></div>
+    <div class="dbxdesc">Synchroniseert met jouw <strong>A_WHEEL_TRACKER.xlsx</strong>. Alleen jij hebt toegang.</div>
+  </div>
+  <div class="spill spwarn" id="spill">⚠️ Nog niet gekoppeld</div>
+  <div class="stit">Setup</div>
+  <div class="steps">
+    <div class="step"><div class="stepn">1</div><div class="stept">Ga naar <a href="https://www.dropbox.com/developers/apps" target="_blank"><strong>dropbox.com/developers/apps</strong></a> → Create app → Scoped access → App folder → naam: <code>WheelTracker</code></div></div>
+    <div class="step"><div class="stepn">2</div><div class="stept">Tabblad <strong>Permissions</strong> → vink aan: <code>files.content.read</code> en <code>files.content.write</code> → Submit</div></div>
+    <div class="step"><div class="stepn">3</div><div class="stept">Tabblad <strong>Settings</strong> → OAuth 2 → klik <strong>Generate access token</strong> → kopieer en plak hieronder</div></div>
+  </div>
+  <div class="fgrp">
+    <label class="flbl">Google Drive Bestand ID *</label>
+    <input class="finp" id="cfg-token" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" autocomplete="off">
+    <div style="font-size:.65rem;color:var(--dim);margin-top:.3rem">Kopieer het ID uit de share link van je Google Sheet</div>
+  </div>
+  <div class="btnrow"><button class="btn bprim" onclick="saveCfg()">💾 Opslaan & Synchroniseren</button></div>
+  <div class="btnrow"><button class="btn bout" onclick="disconnect()">Ontkoppelen</button></div>
+  <div class="stit">Installeer als App op iPhone</div>
+  <div class="instcard">
+    <strong style="color:var(--txt)">1.</strong> Open in Safari<br>
+    <strong style="color:var(--txt)">2.</strong> Tik op deel-icoon (↑ onderaan)<br>
+    <strong style="color:var(--txt)">3.</strong> Tik op "Zet op beginscherm"<br>
+    <strong style="color:var(--txt)">4.</strong> Naam: Wheel Tracker → Voeg toe
+  </div>
+</div>
+
+</div><!-- end scroll -->
+
+<nav class="bnav">
+  <button class="ni on" onclick="goPage('dash',this)"><span class="ic">📊</span><span>Board</span><div class="pip"></div></button>
+  <button class="ni" onclick="goPage('trades',this)"><span class="ic">📋</span><span>Trades</span><div class="pip"></div></button>
+  <button class="ni" onclick="goPage('tickers',this)"><span class="ic">🎯</span><span>Tickers</span><div class="pip"></div></button>
+  <button class="ni" onclick="goPage('perf',this)"><span class="ic">📈</span><span>Perf.</span><div class="pip"></div></button>
+  <button class="ni" onclick="goPage('screen',this)"><span class="ic">🔍</span><span>Screen</span><div class="pip"></div></button>
+  <button class="ni" onclick="goPage('settings',this)"><span class="ic">⚙️</span><span>Instellingen</span><div class="pip"></div></button>
+</nav>
+<button class="fab" onclick="openModal()">+</button>
+</div>
+
+<!-- MODAL -->
+<div class="mover" id="modal">
+<div class="msheet">
+  <div class="mhandle"></div>
+  <div class="mtit" id="mtit">Nieuwe Trade</div>
+  <div class="frow">
+    <div class="fgrp"><label class="flbl">Ticker *</label><input class="finp" id="f-ticker" placeholder="ASTS" oninput="this.value=this.value.toUpperCase();calcPrev()"></div>
+    <div class="fgrp"><label class="flbl">Type *</label><select class="fsel" id="f-type" onchange="calcPrev()"><option value="CSP">CSP</option><option value="CC">CC</option></select></div>
+  </div>
+  <div class="frow">
+    <div class="fgrp"><label class="flbl">Open Datum *</label><input class="finp" id="f-open" type="date" oninput="calcPrev()"></div>
+    <div class="fgrp"><label class="flbl">Expiry *</label><input class="finp" id="f-expiry" type="date" oninput="calcPrev()"></div>
+  </div>
+  <div class="frow">
+    <div class="fgrp"><label class="flbl">Strike *</label><input class="finp" id="f-strike" type="number" step="0.5" inputmode="decimal" oninput="calcPrev()"></div>
+    <div class="fgrp"><label class="flbl">Contracten *</label><input class="finp" id="f-contracts" type="number" step="0.1" inputmode="decimal" oninput="calcPrev()"></div>
+  </div>
+  <div class="frow">
+    <div class="fgrp"><label class="flbl">Prem recv/sh *</label><input class="finp" id="f-recv" type="number" step="0.01" inputmode="decimal" oninput="calcPrev()"></div>
+    <div class="fgrp"><label class="flbl">Buyback/sh</label><input class="finp" id="f-buy" type="number" step="0.01" value="0" inputmode="decimal" oninput="calcPrev()"></div>
+  </div>
+  <div class="frow">
+    <div class="fgrp"><label class="flbl">Fees</label><input class="finp" id="f-fees" type="number" step="0.01" value="2.40" inputmode="decimal" oninput="calcPrev()"></div>
+    <div class="fgrp"><label class="flbl">Account</label><select class="fsel" id="f-account"><option value="TS">TS</option><option value="T">T</option></select></div>
+  </div>
+  <div class="frow">
+    <div class="fgrp"><label class="flbl">Status</label><select class="fsel" id="f-status" onchange="togClose()"><option value="Open">Open</option><option value="Closed">Closed</option><option value="Assigned">Assigned</option><option value="Expired">Expired</option><option value="Called Away">Called Away</option></select></div>
+    <div class="fgrp" id="fclose" style="display:none"><label class="flbl">Close Datum</label><input class="finp" id="f-close" type="date"></div>
+  </div>
+  <div class="frow">
+    <div class="fgrp"><label class="flbl">Valuta</label><select class="fsel" id="f-currency"><option value="USD">USD $</option><option value="EUR">EUR euro</option></select></div>
+    <div class="fgrp"><label class="flbl">Notes</label><input class="finp" id="f-notes" placeholder="Optioneel"></div>
+  </div>
+  <div class="cprev">
+    <div class="citem"><div class="clbl">Net Premium</div><div class="cval" id="cp-net">$0</div></div>
+    <div class="citem"><div class="clbl">Kap. Risk</div><div class="cval" id="cp-cap">$0</div></div>
+    <div class="citem"><div class="clbl">Yield</div><div class="cval" id="cp-yld">0%</div></div>
+    <div class="citem"><div class="clbl">Breakeven</div><div class="cval" id="cp-be">$0</div></div>
+    <div class="citem"><div class="clbl">DTE</div><div class="cval" id="cp-dte">-</div></div>
+    <div class="citem"><div class="clbl">Ann. Yield</div><div class="cval" id="cp-ann">-</div></div>
+  </div>
+  <div class="btnrow">
+    <button class="btn bout" onclick="closeModal()" style="width:38%">Annuleer</button>
+    <button class="btn bprim" onclick="saveTrade()" id="mbtn" style="width:62%">Toevoegen</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// STATE
+let trades=[], perAandeel={}, overviewData={}, cfg={token:''}, connected=false, editIdx=null, chipVal='', selYear=new Date().getFullYear();
+
+// DROPBOX
+const DAPI='https://api.dropboxapi.com/2', DCNT='https://content.dropboxapi.com/2';
+
+function loadCfg(){
+  try{const s=localStorage.getItem('wt_cfg3');if(s){cfg={...cfg,...JSON.parse(s)}}
+  if(cfg.token){document.getElementById('cfg-token').value=cfg.token;connected=true;setSUI('ok');updSpill();}
+  if(cfg.path){document.getElementById('cfg-path').value=cfg.path;}}catch(e){}
+}
+function saveCfg(){
+  const t=document.getElementById('cfg-token').value.trim();
+  const p=document.getElementById('cfg-path').value.trim()||'/A_WHEEL_TRACKER.xlsx';
+  if(!t){showToast('Voer een token in','terr');return}
+  cfg.token=t;cfg.path=p;
+  localStorage.setItem('wt_cfg3',JSON.stringify(cfg));
+  connected=true;setSUI('ok');updSpill();syncDBX();
+}
+function disconnect(){
+  cfg={token:'',path:''};localStorage.removeItem('wt_cfg3');localStorage.removeItem('wt_trades3');
+  connected=false;setSUI('');updSpill();showToast('Ontkoppeld','twarn');
+}
+function setSUI(s){
+  const b=document.getElementById('sbtn'),l=document.getElementById('slbl');
+  b.className='sbtn'+(s?' '+s:'');
+  l.textContent=s==='ok'?'Verbonden':s==='busy'?'Syncing...':s==='err'?'Fout':'Connect';
+}
+function updSpill(){
+  const p=document.getElementById('spill');if(!p)return;
+  if(connected){p.className='spill spok';p.textContent='Verbonden met Dropbox';}
+  else{p.className='spill spwarn';p.textContent='Nog niet gekoppeld';}
+}
+function handleSync(){
+  if(!cfg.token){goPage('settings',document.querySelectorAll('.ni')[5]);return}
+  syncDBX();
+}
+
+async function syncDBX(){
+  setSUI('busy');
+  try{
+    const fileId = cfg.token; // We reuse token field for Google Drive file ID
+    if(!fileId)throw new Error('Voer je Google Drive bestand ID in');
+    
+    // Download via Google Drive export URL (always fresh, no cache)
+    // This works for publicly shared Excel files
+    const url = 'https://docs.google.com/spreadsheets/d/'+fileId+'/export?format=xlsx&cachebust='+Date.now();
+    const dr = await fetch(url);
+    if(!dr.ok){
+      if(dr.status===401||dr.status===403)throw new Error('Bestand niet publiek. Zet delen in op "Iedereen met de link"');
+      if(dr.status===404)throw new Error('Bestand niet gevonden. Controleer het ID');
+      throw new Error('Download mislukt HTTP '+dr.status);
+    }
+
+    const buf = await dr.arrayBuffer();
+    const wb = XLSX.read(buf,{type:'array',cellDates:true});
+
+    // Parse Trades sheet
+    const ws = wb.Sheets['Trades'];
+    if(!ws)throw new Error('Sheet Trades niet gevonden');
+    const imported = parseRows(XLSX.utils.sheet_to_json(ws,{header:1}));
+
+    // Parse Overview sheet
+    overviewData={};
+    const wo = wb.Sheets['Overview'];
+    if(wo){
+      const ov = XLSX.utils.sheet_to_json(wo,{header:1});
+      const pn = v => typeof v==='number'?v:0;
+      if(ov[2]&&ov[2][1]!==undefined)overviewData.totalNet=pn(ov[2][1]);
+      if(ov[3]&&ov[3][1]!==undefined)overviewData.openPrem=pn(ov[3][1]);
+      if(ov[4]&&ov[4][1]!==undefined)overviewData.realizedPL=pn(ov[4][1]);
+      if(ov[5]&&ov[5][1]!==undefined)overviewData.capRisk=pn(ov[5][1]);
+    }
+
+    // Parse Per Aandeel sheet
+    perAandeel={};
+    const wp = wb.Sheets['Per Aandeel'];
+    if(wp){
+      const pa = XLSX.utils.sheet_to_json(wp,{header:1});
+      for(let i=3;i<pa.length;i++){
+        const r=pa[i];
+        if(!r[0]||String(r[0]).trim()==='')continue;
+        const tk=String(r[0]).toUpperCase().trim();
+        const pn=v=>typeof v==='number'?v:0;
+        const fd2=v=>{if(!v)return'';if(v instanceof Date){return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0')}return''};
+        perAandeel[tk]={
+          netPremium:pn(r[1]),realizedPL:pn(r[2]),openCapital:pn(r[3]),
+          openTrades:pn(r[4]),totalTrades:pn(r[5]),shares:pn(r[6]),
+          breakeven:pn(r[7]),nextExpiry:fd2(r[8]),daysToExpiry:pn(r[9]),
+          status:String(r[10]||'').trim()
+        };
+      }
+    }
+
+    trades = imported;
+    localStorage.setItem('wt_trades3',JSON.stringify(trades));
+    connected=true;setSUI('ok');updSpill();renderAll();
+    showToast('✅ '+trades.length+' trades geladen','tok');
+  }catch(err){
+    console.error(err);setSUI('err');showToast('❌ '+err.message,'terr');
+    setTimeout(()=>setSUI(connected?'ok':''),3000);
+  }
+}
+
+async function pushDBX(){
+  // Google Drive is read-only - trades added in app are saved locally only
+  // To add trades: add in Excel -> save -> sync app
+}
+
+
